@@ -10,6 +10,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -20,6 +21,25 @@ LOGS  = REPO / "data" / "logs"
 JOURN = REPO / "data" / "journals"
 for d in [STATE, LOGS, JOURN]:
     d.mkdir(parents=True, exist_ok=True)
+
+# ─── Log Rotation ─────────────────────────────────────────────────
+def rotate_logs():
+    """Delete logs older than 7 days, cap journal at 500 entries."""
+    now = time.time()
+    for f in LOGS.glob("*"):
+        if f.is_file() and now - f.stat().st_mtime > 7 * 86400:  # 7d
+            f.unlink()
+    # Cap journal
+    jf = JOURN / "strategy_journal.json"
+    if jf.exists():
+        try:
+            lst = json.loads(jf.read_text())
+            if len(lst) > 500:
+                lst = lst[-300:]  # keep last 300
+                jf.write_text(json.dumps(lst, indent=2))
+        except:
+            pass
+
 
 # ─── Default Config ─────────────────────────────────────────────
 DEFAULT = dict(
@@ -320,6 +340,9 @@ def jlog(s, kind, slug, pnl=0.0):
 
 # ─── The Agent ─────────────────────────────────────────────────────
 def run(dry=True):
+    # 0. Clean up old logs / journal
+    rotate_logs()
+
     mode = "DRY" if dry else "LIVE"
     s    = load_state()
     c    = s["config"]
