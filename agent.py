@@ -22,7 +22,7 @@ CFG = dict(
     max_per_category=2,                     # Correlation limit per market category
     telegram_alerts=True,                   # Send TP/SL alerts to Telegram
     min_resolution_days=1,                  # Skip markets resolving before this
-    max_resolution_days=7,                  # Skip markets resolving after this
+    max_resolution_days=14,                 # Skip markets resolving after this
 )
 
 def log(m, lv="INFO"):
