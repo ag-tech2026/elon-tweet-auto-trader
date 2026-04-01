@@ -1,61 +1,45 @@
 {
-  "config": {
-    "max_positions": 5,
-    "trade_size": 1.0,
-    "max_trade": 2.5,
-    "daily_loss_limit": 3.0,
-    "total_cap": 5.0,
-    "yes_buy_min": 0.05,
-    "yes_buy_max": 0.4,
-    "no_buy_min": 0.05,
-    "no_buy_max": 0.15,
-    "take_profit_roi": 0.8,
-    "stop_loss_pct": 0.5,
-    "min_liquidity": 200000,
-    "min_volume": 100000,
-    "scopes": [
-      "crypto"
-    ],
-    "auto_compound": true,
-    "profit_step": 0.25,
-    "loss_step": 0.25,
-    "compounding_every": 3.0
-  },
-  "positions": {
+  "max_pos": 5,
+  "trade": 1.0,
+  "max_trade": 2.5,
+  "min_trade": 0.5,
+  "daily_lim": 3.0,
+  "cap": 2.0,
+  "yes_min": 0.05,
+  "yes_max": 0.4,
+  "tp_roi": 0.8,
+  "sl_pct": 0.5,
+  "tune_every": 10,
+  "last_tune_run": 0,
+  "pos": {
     "will-ethereum-reach-8000-by-december-31-2026": {
-      "outcome": "Yes",
-      "price": 0.05,
-      "amount": 1.0,
-      "added": "2026-03-31T16:59:34.680828"
+      "o": "Yes",
+      "p": 0.05,
+      "a": 1.0
     },
-    "will-bitcoin-dip-to-65k-on-march-31": {
-      "outcome": "Yes",
-      "price": 0.05,
-      "amount": 1.0,
-      "added": "2026-03-31T16:59:34.681031"
+    "over-18m-committed-to-the-p2p-protocol-public-sale-699-735-353-242": {
+      "o": "Yes",
+      "p": 0.0515,
+      "a": 1.0
     },
     "predictfun-fdv-above-2b-one-day-after-launch": {
-      "outcome": "Yes",
-      "price": 0.0535,
-      "amount": 1.0,
-      "added": "2026-03-31T16:59:34.681277"
+      "o": "Yes",
+      "p": 0.0535,
+      "a": 1.0
     },
-    "ethereum-above-2200-on-april-1": {
-      "outcome": "Yes",
-      "price": 0.0535,
-      "amount": 1.0,
-      "added": "2026-03-31T16:59:34.714322"
+    "will-bitcoin-dip-to-58k-march-30-april-5": {
+      "o": "Yes",
+      "p": 0.055,
+      "a": 1.0
     },
     "will-solana-reach-600-by-december-31-2026": {
-      "outcome": "Yes",
-      "price": 0.055,
-      "amount": 1.0,
-      "added": "2026-03-31T16:59:34.715277"
+      "o": "Yes",
+      "p": 0.055,
+      "a": 1.0
     }
   },
-  "journal": [],
-  "daily_pnl": 0.0,
-  "total_pnl": 0.0,
-  "runs": 21,
-  "last_run": "2026-03-31T17:05:29.328392"
+  "runs": 4,
+  "t_pnl": 0.0,
+  "d_pnl": 0.0,
+  "lr": "2026-04-01T00:28:38"
 }
