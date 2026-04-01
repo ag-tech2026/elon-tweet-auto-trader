@@ -17,7 +17,10 @@ JFILE = JOURN / "strategy_journal.json"
 CFG = dict(
     max_pos=5, trade=1.0, max_trade=2.5, min_trade=0.5,
     daily_lim=3.0, cap=2.0, yes_min=0.05, yes_max=0.40,
-    tp_roi=0.80, sl_pct=0.50, tune_every=10, last_tune_run=0
+    tp_roi=0.80, sl_pct=0.50, tune_every=10, last_tune_run=0,
+    fast_mode=False,                  # Tighter TP/SL for faster learning
+    max_per_category=2,               # Correlation limit per market category
+    telegram_alerts=True              # Send TP/SL alerts to Telegram
 )
 
 def log(m, lv="INFO"):
@@ -25,6 +28,18 @@ def log(m, lv="INFO"):
     print(f"[{ts}] [{lv}] {m}")
     with open(LOGS / f"agent_{time.strftime('%Y-%m-%d')}.log", "a") as f:
         f.write(f"[{ts}] [{lv}] {m}\n")
+
+def telegram_alert(msg):
+    """Send a Telegram alert."""
+    try:
+        import os
+        token = os.environ.get("TELEGRAM_BOT_TOKEN", "8790751627:AAFytj-a3W3OegqSsYNAtjIVenTHKFfR55s")
+        chat_id = "7372567737"
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        subprocess.run(["curl", "-s", url, "-d", f"chat_id={chat_id}&text={msg}"],
+                       capture_output=True, text=True, timeout=5)
+    except:
+        pass
 
 def bp(a, t=30):
     r=subprocess.run(["bullpen","polymarket"]+a, capture_output=True, text=True, timeout=t)
@@ -125,6 +140,12 @@ def run(dry=True):
     s=load(); s["runs"]+=1; c=s
     size=sz(s)
     log("="*60); log(f"[{mode}] #{s['runs']} sz:${size:.2f} YES<={c['yes_max']:.0%}")
+
+    # Fast mode: override TP/SL for faster learning
+    if c.get("fast_mode"):
+        orig_tp=c["tp_roi"]; orig_sl=c["sl_pct"]
+        c["tp_roi"]=0.50; c["sl_pct"]=0.30
+        log(f"⚡ Fast mode: TP={c['tp_roi']:.0%} SL={c['sl_pct']:.0%}")
     
     # 1. Safety Check
     bal=None; d,e=bp(["clob","balance"])
@@ -165,12 +186,16 @@ def run(dry=True):
             meta={k:v for k,v in info.items() if k in("cat","pr","e","liq","vol") and v}
             jlog("tp",sl,pnl, **meta); s["pos"].pop(sl)
             log(f"💰 TP: {sl[:30]} ROI={roi:.0%} ${pnl:+.2f}")
+            msg = f"💰 TP hit: {sl[:40]}\nROI: {roi:.0%} | P&L: ${pnl:+.2f}\nRun #{s['runs']}"
+            if c.get("telegram_alerts"): telegram_alert(msg)
         elif roi<=-c["sl_pct"]:
             if not dry: bp(["sell",sl,info["o"],f"{info['a']:.2f}","--yes"])
             s["t_pnl"]+=pnl; s["d_pnl"]+=pnl
             meta={k:v for k,v in info.items() if k in("cat","pr","e","liq","vol") and v}
             jlog("sl",sl,pnl, **meta); s["pos"].pop(sl)
             log(f"🛑 SL: {sl[:30]} ROI={roi:.0%} ${pnl:+.2f}")
+            msg = f"🛑 SL hit: {sl[:40]}\nROI: {roi:.0%} | P&L: ${pnl:+.2f}\nRun #{s['runs']}"
+            if c.get("telegram_alerts"): telegram_alert(msg)
 
     # 3. Self-Tune
     tune(s)
@@ -248,9 +273,24 @@ def run(dry=True):
     av=[m for m in mkts if m["s"] not in ex]
     log(f"👁️ Scanned {len(mkts)}, Found {len(av)} opportunities")
     
-    # 5. Execute
+    # 5. Execute with correlation limits
     slots=c["max_pos"]-len(s["pos"])
+    max_per_cat = c.get("max_per_category", 2)
+    
+    # Count current positions per category
+    cat_counts = {}
+    for sl, info in s["pos"].items():
+        cat = info.get("cat", "crypto")
+        cat_counts[cat] = cat_counts.get(cat, 0) + 1
+    
+    filled = 0
     for m in av[:slots]:
+        cat = m.get("cat", "crypto")
+        # Correlation limit check
+        if cat_counts.get(cat, 0) >= max_per_cat:
+            log(f"⏭️ Skip {m['s'][:30]}: {cat} cap reached ({cat_counts[cat]}/{max_per_cat})")
+            continue
+        
         a=sz(s); q_short=m['q'][:30].replace('"','')
         meta = {
             "cat": m.get("cat", "crypto"),     # market category
@@ -267,12 +307,16 @@ def run(dry=True):
                 s["pos"][m["s"]]=dict(o=m["o"],p=m["p"],a=a, **{k:v for k,v in meta.items() if v})
                 jlog("open",m["s"],0, **{k:v for k,v in meta.items() if v})
                 log(f"✅ LIVE {m['o']}@{m['p']:.0%} ${a:.2f} → {q_short}")
+                filled += 1
+                cat_counts[cat] = cat_counts.get(cat, 0) + 1
         else:
             s["pos"][m["s"]]=dict(o=m["o"],p=m["p"],a=a, **{k:v for k,v in meta.items() if v})
             jlog("open",m["s"],0, **{k:v for k,v in meta.items() if v})
             log(f"✅ DRY {m['o']}@{m['p']:.0%} ${a:.2f} → {q_short}")
+            filled += 1
+            cat_counts[cat] = cat_counts.get(cat, 0) + 1
             
-    log(f"📊 {len(s['pos'])}/{c['max_pos']} pos | ${s['t_pnl']:+.2f}")
+    log(f"📊 {len(s['pos'])}/{c['max_pos']} pos | ${s['t_pnl']:+.2f} | Filled {filled} trades")
     log("="*60); save(s)
 
 if __name__=="__main__": 

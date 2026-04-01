@@ -281,6 +281,10 @@ def default_configs():
         {"name": "Aggressive (wide YES)", "config": {**current, "yes_max": 0.55}},
         {"name": "Balanced (wide YES, higher TP)", "config": {**current, "yes_max": 0.50, "tp_roi": 0.90}},
         {"name": "Tight Risk (low SL)", "config": {**current, "sl_pct": 0.30}},
+        # NEW: Fast learning + diversification configs
+        {"name": "Fast Learning (tight TP/SL)", "config": {**current, "tp_roi": 0.50, "sl_pct": 0.30}},
+        {"name": "Diversified (max 2/category)", "config": {**current, "max_per_category": 2}},
+        {"name": "Fast + Diversified", "config": {**current, "tp_roi": 0.50, "sl_pct": 0.30, "max_per_category": 2}},
     ]
     
     # Research-driven: customize based on research data
