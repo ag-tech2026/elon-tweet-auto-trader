@@ -289,9 +289,57 @@ def run(dry=True):
                                      cat=cat, e=ed[:10] if ed else "TBD", pr="t1"))
     
     mkts.sort(key=lambda x:-x["r"])
+    
+    # 4b. Ensemble Scoring — 4-pillar confidence system
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("ensemble_scoring", ROOT / "ensemble_scoring.py")
+        ensemble = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(ensemble)
+        
+        rdata = None
+        try:
+            rdata = load_research()
+        except:
+            pass
+        
+        jdata = None
+        try:
+            jdata = load_journal()
+        except:
+            pass
+        
+        # Score each discovered market
+        scored_markets = []
+        for m in mkts:
+            sr = ensemble.score_market(m, s, research=rdata, journal=jdata)
+            m["ensemble_total"] = sr["total"]
+            m["ensemble_conviction"] = sr["conviction"]
+            m["ensemble_pillars"] = sr
+            scored_markets.append(m)
+        
+        # Filter: skip markets with ensemble score < 25
+        before = len(scored_markets)
+        scored_markets = [m for m in scored_markets if m.get("ensemble_total", 0) >= 25]
+        skipped = before - len(scored_markets)
+        log(f"🎯 Ensemble filter: {before} → {len(scored_markets)} (skipped {skipped} low-confidence)")
+        
+        # Log top 3 scored markets for transparency
+        for i, m in enumerate(scored_markets[:3]):
+            ep = m["ensemble_pillars"]
+            log(f"  #{i+1} [{m['ensemble_conviction']}] {m['s'][:35]} | Score: {m['ensemble_total']:.1f} | "
+                f"S={ep['sentiment']} E={ep['historical_edge']} M={ep['market_dynamics']} P={ep['portfolio_health']}")
+    
+    except Exception as e:
+        log(f"⚠️ Ensemble scoring failed: {e}, falling back to ROI sorting", "WARN")
+        scored_markets = [dict(m, ensemble_total=m["r"]*10, ensemble_conviction="MEDIUM",
+                               ensemble_pillars={}) for m in mkts]
+    
     ex=set(s["pos"].keys())
-    av=[m for m in mkts if m["s"] not in ex]
-    log(f"👁️ Scanned {len(mkts)}, Found {len(av)} opportunities")
+    av=[m for m in scored_markets if m["s"] not in ex]
+    # Sort by ensemble score (descending), then ROI as tiebreaker
+    av.sort(key=lambda x: (-x.get("ensemble_total", 0), -x["r"]))
+    log(f"👁️ Scanned {len(mkts)}, Found {len(av)} opportunities (ensemble-filtered)")
     
     # 5. Execute with correlation limits
     slots=c["max_pos"]-len(s["pos"])
